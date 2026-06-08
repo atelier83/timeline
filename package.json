@@ -1,0 +1,96 @@
+{
+  "name": "@atelier83/timeline",
+  "version": "0.1.0",
+  "description": "Headless, framework-agnostic animation timeline: keyframes, easing, labels, and playback. Vanilla TS core with an optional Flash-style dope-sheet UI and React bindings.",
+  "license": "MIT",
+  "author": "atelier83",
+  "homepage": "https://github.com/atelier83/timeline#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atelier83/timeline.git"
+  },
+  "bugs": {
+    "url": "https://github.com/atelier83/timeline/issues"
+  },
+  "keywords": [
+    "timeline",
+    "animation",
+    "keyframes",
+    "easing",
+    "tween",
+    "dope-sheet",
+    "playback",
+    "headless",
+    "react"
+  ],
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./theme.css": "./dist/theme.css"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.build.json && cp src/theme.css dist/theme.css",
+    "build:demo": "vite build",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run test && npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.170.0",
+    "@vitest/coverage-v8": "^3.2.6",
+    "dat.gui": "^0.7.9",
+    "jsdom": "^29.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.170.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
