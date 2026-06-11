@@ -1,7 +1,7 @@
 {
   "name": "@atelier83/timeline",
   "version": "0.1.0",
-  "description": "Headless, framework-agnostic animation timeline: keyframes, easing, labels, and playback. Vanilla TS core with an optional Flash-style dope-sheet UI and React bindings.",
+  "description": "Headless, framework-agnostic animation timeline: keyframes, easing, and playback. Vanilla TS core with an optional Flash-style dope-sheet UI and React bindings.",
   "license": "MIT",
   "author": "atelier83",
   "homepage": "https://github.com/atelier83/timeline#readme",
@@ -60,7 +60,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run test && npm run build"
+    "prepublishOnly": "pnpm test && pnpm build"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -79,13 +79,10 @@
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/three": "^0.170.0",
     "@vitest/coverage-v8": "^3.2.6",
-    "dat.gui": "^0.7.9",
     "jsdom": "^29.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.170.0",
     "typescript": "^5.6.0",
     "vite": "^6.0.0",
     "vitest": "^3.0.0"

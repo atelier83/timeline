@@ -1,74 +1,112 @@
 /*
- * @atelier83/timeline default theme.
+ * @atelier83/timeline default theme — dark.
  *
- * The UI injects this same stylesheet automatically (see src/ui/styles.ts), so
- * importing this file is only needed if you disable injection or want to link
- * the CSS yourself. Reskin by overriding the --tl-* tokens on `.tl-root`.
+ * Defines the shared @atelier83 design tokens (--a83-*) that the library
+ * consumes. The library itself carries no colours; this file (or your app) is
+ * the only place values live. Load it for standalone use:
+ *
+ *   import "@atelier83/timeline/theme.css";
+ *
+ * Using timeline inside an app alongside @atelier83/layouts? Skip this file and
+ * define the --a83-* tokens once yourself — both packages read the same names,
+ * so one palette themes everything. Light/dark/system switching is the app's
+ * job: redefine these tokens under your own media query or [data-theme] rules.
+ */
+:root {
+  /* surfaces + lines */
+  --a83-bg: #262626;
+  --a83-surface: #323232;
+  --a83-border: #323232;
+  --a83-border-strong: #3d3d3d;
+
+  /* text */
+  --a83-text: #c8c8c8;
+  --a83-text-muted: #8c8c8c;
+
+  /* accent — playhead, focus, selection */
+  --a83-accent: #e6e6e6;
+
+  /* flat control fills (hover == active/selected) */
+  --a83-control: #3b3b3b;
+  --a83-control-hover: #4a4a4a;
+
+  /* washes */
+  --a83-hover: rgba(255, 255, 255, 0.06);
+  --a83-active: rgba(255, 255, 255, 0.1);
+  --a83-overlay: rgba(255, 255, 255, 0.03);
+  --a83-highlight: rgba(255, 255, 255, 0.5);
+
+  --a83-font: system-ui, -apple-system, sans-serif;
+
+  /* radius scale */
+  --a83-radius-sm: 2px;
+  --a83-radius-md: 4px;
+  --a83-radius-lg: 6px;
+}
+/*
+ * Structural + skin rules for the dope sheet (moved from src/ui/styles.ts).
+ * The library is theme-free: colours are read from the shared `--a83-*` tokens.
+ * This file now contains both the token definitions and the UI rules so users
+ * can opt into the bundled stylesheet by importing `@atelier83/timeline/theme.css`.
  */
 .tl-root {
-  --tl-bg: #323232;
-  --tl-surface: #323232;
-  --tl-surface-2: #3c3c3c;
-  --tl-line: #212121;
-  --tl-border: var(--tl-line);
-  --tl-border-strong: #555555;
-  --tl-text: #c8c8c8;
-  --tl-text-dim: #8c8c8c;
-  --tl-hover: rgba(255, 255, 255, 0.06);
-  --tl-active: rgba(255, 255, 255, 0.1);
-  --tl-accent: #e6e6e6;
-  --tl-accent-soft: rgba(255, 255, 255, 0.14);
-  --tl-btn: #3b3b3b;
-  --tl-btn-hover: #4a4a4a;
-  --tl-grid: var(--tl-line);
-  --tl-grid-strong: var(--tl-line);
-  --tl-band: rgba(255, 255, 255, 0.03);
-  --tl-hold: #8f8f8f;
-  --tl-tween: #b4b4b4;
-  --tl-seg-sel: #d6d6d6;
-  --tl-kf: #1c1c1c;
-  --tl-sidebar-w: 184px;
-  --tl-ruler-h: 26px;
-  --tl-lane-h: 30px;
-  --tl-radius: 6px;
-
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 99999;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  font-family: var(--a83-font);
   font-size: 12px;
   line-height: 1.4;
-  color: var(--tl-text);
-  background: var(--tl-bg);
-  border-top: 1px solid var(--tl-border);
+  color: var(--a83-text);
+  background: var(--a83-bg);
+  border-top: 1px solid var(--a83-border);
   user-select: none;
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
 }
-.tl-root * { box-sizing: border-box; }
+.tl-root * {
+  box-sizing: border-box;
+}
 .tl-root.is-collapsed .tl-header,
-.tl-root.is-collapsed .tl-body { display: none; }
-.tl-root.is-collapsed .tl-inspector { display: none; }
+.tl-root.is-collapsed .tl-body {
+  display: none;
+}
+/* collapsed = playback only: hide the inspectors (the corner toolbar lives in
+   the header, so it's hidden automatically) */
+.tl-root.is-collapsed .tl-inspector {
+  display: none;
+}
 
-.tl-root ::-webkit-scrollbar { width: 10px; height: 10px; }
+/* thin, quiet scrollbars */
+.tl-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
 .tl-root ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--a83-border-strong);
   border: 3px solid transparent;
   background-clip: padding-box;
   border-radius: 8px;
 }
-.tl-root ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); background-clip: padding-box; }
-.tl-root ::-webkit-scrollbar-track { background: transparent; }
+.tl-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--a83-text-muted);
+  background-clip: padding-box;
+}
+.tl-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
 
+/* transport */
 .tl-transport {
   display: flex;
   align-items: center;
   gap: 3px;
-  height: var(--tl-ruler-h);
+  height: 26px;
   padding: 0 7px;
-  background: var(--tl-surface);
+  background: var(--a83-bg);
+  /* no top border: the last lane/row already draws the 1px separator above,
+     so adding one here would render as a doubled 2px line */
 }
 .tl-btn {
   display: inline-flex;
@@ -78,103 +116,161 @@
   height: 26px;
   padding: 0 6px;
   border: none;
-  border-radius: var(--tl-radius);
-  background: var(--tl-btn);
-  color: var(--tl-text-dim);
+  border-radius: var(--a83-radius-lg);
+  background: var(--a83-control);
+  color: var(--a83-text-muted);
   font: inherit;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 .tl-btn:hover,
 .tl-btn:active,
-.tl-btn.is-active { background: var(--tl-btn-hover); color: var(--tl-text); }
-.tl-btn:disabled { opacity: 0.4; cursor: default; }
-.tl-btn-sm { min-width: 20px; height: 20px; padding: 0 3px; border-radius: 4px; }
-.tl-btn-sm .tl-icon { width: 13px; height: 13px; }
-.tl-icon { width: 16px; height: 16px; display: block; flex: none; }
-.tl-insp-field .tl-label-dim { display: inline-flex; align-items: center; }
-.tl-insp-field .tl-icon { width: 14px; height: 14px; }
+.tl-btn.is-active {
+  background: var(--a83-control-hover);
+  color: var(--a83-text);
+}
+.tl-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* smaller buttons for the corner authoring toolbar */
+.tl-btn-sm {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 3px;
+  border-radius: var(--a83-radius-md);
+}
+.tl-btn-sm .tl-icon {
+  width: 13px;
+  height: 13px;
+}
+.tl-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex: none;
+}
+.tl-insp-field .tl-label-dim {
+  display: inline-flex;
+  align-items: center;
+}
+.tl-insp-field .tl-icon {
+  width: 14px;
+  height: 14px;
+}
 .tl-time {
   font-variant-numeric: tabular-nums;
   padding: 0 10px;
-  color: var(--tl-text-dim);
+  color: var(--a83-text-muted);
   letter-spacing: 0.01em;
 }
-.tl-time b { color: var(--tl-text); font-weight: 600; }
-.tl-spacer { flex: 1; }
-.tl-label-dim { color: var(--tl-text-dim); }
-.tl-sep { width: 1px; align-self: stretch; background: var(--tl-border); margin: 8px 6px; }
+.tl-time b {
+  color: var(--a83-text);
+  font-weight: 600;
+}
+.tl-spacer {
+  flex: 1;
+}
+.tl-label-dim {
+  color: var(--a83-text-muted);
+}
+.tl-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--a83-border);
+  margin: 8px 6px;
+}
 
+/* selection inspector */
 .tl-inspector {
   display: none;
   align-items: center;
   gap: 8px;
   padding: 0 12px;
   margin: 0 6px;
-  border-left: 1px solid var(--tl-border);
-  border-right: 1px solid var(--tl-border);
+  border-left: 1px solid var(--a83-border);
+  border-right: 1px solid var(--a83-border);
 }
-.tl-inspector.is-visible { display: flex; }
-.tl-insp-field { display: flex; align-items: center; gap: 5px; }
+.tl-inspector.is-visible {
+  display: flex;
+}
+.tl-insp-field {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
 .tl-input {
   width: 56px;
   height: 22px;
   padding: 0 8px;
   border: none;
-  border-radius: var(--tl-radius);
-  background: var(--tl-btn);
-  color: var(--tl-text);
+  border-radius: var(--a83-radius-lg);
+  background: var(--a83-control);
+  color: var(--a83-text);
   font: inherit;
   font-variant-numeric: tabular-nums;
   transition: background 0.12s ease;
 }
 .tl-input:hover,
-.tl-input:focus { outline: none; background: var(--tl-btn-hover); }
-.tl-input-name { width: 96px; text-align: left; }
-.tl-input-script { width: 132px; text-align: left; }
+.tl-input:focus {
+  outline: none;
+  background: var(--a83-control-hover);
+}
 .tl-select {
   height: 22px;
   padding: 0 6px;
   border: none;
-  border-radius: var(--tl-radius);
-  background: var(--tl-btn);
-  color: var(--tl-text);
+  border-radius: var(--a83-radius-lg);
+  background: var(--a83-control);
+  color: var(--a83-text);
   font: inherit;
   cursor: pointer;
   transition: background 0.12s ease;
 }
 .tl-select:hover,
-.tl-select:focus { outline: none; background: var(--tl-btn-hover); }
+.tl-select:focus {
+  outline: none;
+  background: var(--a83-control-hover);
+}
 
-.tl-header { display: flex; align-items: stretch; }
+/* header (corner + ruler) */
+.tl-header {
+  display: flex;
+  align-items: stretch;
+}
 .tl-corner {
-  width: var(--tl-sidebar-w);
-  flex: 0 0 var(--tl-sidebar-w);
-  height: var(--tl-ruler-h);
+  width: 184px;
+  flex: 0 0 184px;
+  height: 26px;
   display: flex;
   align-items: center;
   gap: 3px;
   padding: 0 7px;
-  border-bottom: 1px solid var(--tl-border);
-  background: var(--tl-surface);
+  /* no border-right: the ruler's frame-0 tick line provides the boundary,
+     so adding one here would render as a doubled 2px line */
+  border-bottom: 1px solid var(--a83-border);
+  background: var(--a83-bg);
 }
 .tl-ruler-viewport {
   position: relative;
   flex: 1;
-  height: var(--tl-ruler-h);
+  height: 26px;
   overflow: hidden;
-  border-bottom: 1px solid var(--tl-border);
-  background: var(--tl-surface);
+  border-bottom: 1px solid var(--a83-border);
+  background: var(--a83-bg);
   cursor: ew-resize;
 }
 .tl-ruler {
   position: relative;
   height: 100%;
   --tl-ppf: 12px;
+  /* dark vertical frame lines only, occupying the top quarter of the ruler */
   background-image: repeating-linear-gradient(
     90deg,
-    var(--tl-line) 0 1px,
+    var(--a83-border) 0 1px,
     transparent 1px var(--tl-ppf)
   );
   background-repeat: no-repeat;
@@ -185,12 +281,12 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  border-left: 1px solid var(--tl-border);
-  color: var(--tl-text);
+  border-left: 1px solid var(--a83-border);
+  color: var(--a83-text);
   padding-left: 6px;
   font-size: 10px;
   letter-spacing: 0.03em;
-  line-height: var(--tl-ruler-h);
+  line-height: 26px;
   white-space: nowrap;
 }
 .tl-ruler-head {
@@ -198,9 +294,10 @@
   top: 0;
   bottom: 0;
   width: 0;
-  border-left: 1px solid var(--tl-accent);
+  border-left: 1px solid var(--a83-accent);
 }
 
+/* body: sidebar + lanes scroll together vertically */
 .tl-body {
   max-height: 264px;
   overflow-y: auto;
@@ -212,34 +309,40 @@
   min-height: 100%;
 }
 .tl-sidebar {
-  width: var(--tl-sidebar-w);
-  flex: 0 0 var(--tl-sidebar-w);
-  background: var(--tl-surface);
+  width: 184px;
+  flex: 0 0 184px;
+  /* no border-right: the lanes' frame-0 grid line provides the boundary,
+     so adding one here would render as a doubled 2px line */
+  background: var(--a83-bg);
 }
 .tl-track-row {
-  height: var(--tl-lane-h);
+  height: 30px;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 0 8px 0 12px;
-  border-bottom: 1px solid var(--tl-border);
+  border-bottom: 1px solid var(--a83-border);
   cursor: pointer;
   transition: background 0.12s ease;
 }
-.tl-track-row:hover { background: var(--tl-hover); }
-.tl-track-row.is-active { background: var(--tl-active); }
+.tl-track-row:hover {
+  background: var(--a83-hover);
+}
+.tl-track-row.is-active {
+  background: var(--a83-active);
+}
 .tl-track-name {
   display: flex;
   align-items: center;
   gap: 6px;
   font-weight: 500;
-  color: var(--tl-text);
+  color: var(--a83-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tl-row-labels { background: transparent; }
 
+/* lanes */
 .tl-lanes-viewport {
   position: relative;
   flex: 1;
@@ -252,108 +355,80 @@
   background-image:
     repeating-linear-gradient(
       90deg,
-      var(--tl-grid) 0 1px,
+      var(--a83-border) 0 1px,
       transparent 1px var(--tl-ppf)
     ),
     repeating-linear-gradient(
       90deg,
-      var(--tl-band) 0 var(--tl-ppf),
+      var(--a83-overlay) 0 var(--tl-ppf),
       transparent var(--tl-ppf) calc(var(--tl-ppf) * 10)
     );
 }
 .tl-lane {
   position: relative;
-  height: var(--tl-lane-h);
-  border-bottom: 1px solid var(--tl-border);
+  height: 30px;
+  border-bottom: 1px solid var(--a83-border);
 }
-.tl-lane svg { position: absolute; inset: 0; display: block; overflow: visible; }
-.tl-lane-labels { background: transparent; }
+.tl-lane svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+}
 
+/* selected empty frame (track lanes draw an SVG rect) */
 .tl-cell-sel {
-  fill: rgba(255, 255, 255, 0.07);
+  fill: var(--a83-active);
   stroke: none;
   pointer-events: none;
 }
-.tl-cell-hl {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.07);
-  pointer-events: none;
-  z-index: 1;
+/* invisible drag handle to extend a span's held tail */
+.tl-span-resize {
+  fill: transparent;
+  cursor: ew-resize;
 }
-.tl-span-resize { fill: transparent; cursor: ew-resize; }
 
-.tl-block { fill: var(--tl-tween); stroke: var(--tl-bg); stroke-width: 1; cursor: grab; }
-.tl-block-hold { fill: var(--tl-hold); }
-.tl-block:active { cursor: grabbing; }
-.tl-block.is-selected { fill: var(--tl-seg-sel); stroke: var(--tl-bg); }
+/* dope-sheet frame blocks + keyframes */
+/* dope-sheet tones derive entirely from the shared palette: spans are the text
+   colour at decreasing opacity (selected -> tween -> held); keyframe markers and
+   end caps are the lane background (--a83-bg) showing through the block, so they
+   read as a clean cut-out in any theme (same tone as the block's separating
+   stroke and the lane canvas). */
+.tl-block {
+  fill: var(--a83-text-muted);
+  stroke: var(--a83-bg);
+  stroke-width: 1;
+  cursor: grab;
+}
+.tl-block-hold {
+  fill: var(--a83-text-muted);
+}
+.tl-block:active {
+  cursor: grabbing;
+}
+.tl-block.is-selected {
+  fill: var(--a83-text);
+  stroke: var(--a83-bg);
+}
 .tl-kf {
-  fill: var(--tl-kf);
+  fill: var(--a83-bg);
   stroke: none;
   pointer-events: none;
 }
 .tl-end {
   fill: none;
-  stroke: var(--tl-kf);
+  stroke: var(--a83-bg);
   stroke-width: 1;
   pointer-events: none;
 }
 
-.tl-marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 4;
-  cursor: pointer;
-}
-.tl-marker-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 1px;
-  background: var(--tl-border-strong);
-}
-.tl-marker-flag {
-  position: absolute;
-  top: 4px;
-  left: 2px;
-  height: 18px;
-  padding: 0 7px;
-  font-size: 10.5px;
-  line-height: 17px;
-  white-space: nowrap;
-  color: var(--tl-text);
-  background: var(--tl-surface-2);
-  border: 1px solid var(--tl-border);
-  border-radius: 5px;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tl-marker.is-selected .tl-marker-flag { border-color: var(--tl-accent); color: var(--tl-accent); }
-.tl-marker.is-hold .tl-marker-flag { background: var(--tl-accent-soft); border-color: var(--tl-accent); color: var(--tl-accent); }
-.tl-marker.is-hold .tl-marker-line { background: var(--tl-accent); }
-.tl-marker.is-hold .tl-marker-flag::before { content: "⏸ "; }
-
-.tl-lane-marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  pointer-events: none;
-  z-index: 3;
-}
-.tl-lane-marker.is-hold { background: var(--tl-accent-soft); }
-
+/* playhead spans the lane stack */
 .tl-playhead {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 0;
-  border-left: 1px solid var(--tl-accent);
+  border-left: 1px solid var(--a83-accent);
   pointer-events: none;
   z-index: 5;
 }
@@ -364,5 +439,5 @@
   left: -4px;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
-  border-top: 5px solid var(--tl-accent);
+  border-top: 5px solid var(--a83-accent);
 }

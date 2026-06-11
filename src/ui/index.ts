@@ -4,11 +4,9 @@ import { TimelineUI, type TimelineUIOptions } from "./timeline-ui";
 
 export { TimelineUI } from "./timeline-ui";
 export type { TimelineUIOptions } from "./timeline-ui";
-export { injectStyles, CSS } from "./styles";
 
 export interface CreateTimelineOptions
-  extends TimelineOptions,
-    TimelineUIOptions {
+  extends TimelineOptions, TimelineUIOptions {
   /** Mount the UI immediately (default true). */
   autoMount?: boolean;
   /** Parent element to mount into (defaults to `document.body`). */

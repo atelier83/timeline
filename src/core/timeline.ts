@@ -2,48 +2,29 @@ import { Track } from "./track";
 import type {
   AnimatableTarget,
   EventListener,
-  Label,
   TimelineEvent,
   TimelineEventMap,
   TimelineOptions,
   TrackOptions,
 } from "./types";
 
-let _labelId = 0;
-const nextLabelId = (): string => `lb_${++_labelId}`;
-
-/** Patch applied to a label via {@link Timeline.updateLabel}. */
-export interface LabelPatch {
-  time?: number;
-  name?: string;
-  hold?: boolean;
-  script?: string;
-}
-
-/** Options accepted by {@link Timeline.addLabel}. */
-export interface AddLabelOptions {
-  time?: number;
-  name?: string;
-  hold?: boolean;
-  script?: string;
-}
-
 type AnyListener = (payload: never) => void;
 
 /**
  * Headless timeline engine.
  *
- * Owns the tracks, the playhead time, playback, and named labels. A label is a
- * marker at a frame; one flagged `hold` acts as a stop point: playback pauses
- * on reaching it until the user advances again — the bridge between predefined
- * and interactive animation. `loop` repeats the whole timeline.
+ * Owns the tracks, the playhead time, and playback. `loop` repeats the whole
+ * timeline when playback reaches a boundary.
  *
- * It is self-driving: while playing it runs its own rAF loop so the library
- * works standalone in any page. On every time change it re-evaluates all
- * tracks, writes the values into their targets, and emits `update`.
+ * By default it is self-driving: while playing it runs its own rAF loop so the
+ * library works standalone in any page. Set `autoUpdate: false` to drive it
+ * from your own loop instead — `play()` then only flips the playing flag and
+ * you advance time by calling `update(dt)` once per frame (see {@link update}).
+ * Either way, on every time change it re-evaluates all tracks, writes the
+ * values into their targets, and emits `update`.
  *
- * Events: "update" (time), "change" (structure), "keyframes" (track), "labels",
- *         "play" (direction), "pause", "stop", "seek" (time), "hold" (label).
+ * Events: "update" (time), "change" (structure), "keyframes" (track),
+ *         "play" (direction), "pause", "stop", "seek" (time).
  */
 export class Timeline {
   fps: number;
@@ -51,24 +32,29 @@ export class Timeline {
   speed: number;
   /** The length auto-fits to the furthest content, never below `minFrames`. */
   minFrames: number;
+  /**
+   * When true (default) `play()` runs an internal rAF loop. Set to false to
+   * drive playback yourself by calling {@link update} from your own loop.
+   */
+  autoUpdate: boolean;
 
   tracks: Track[] = [];
-  labels: Label[] = [];
 
   currentTime = 0;
   isPlaying = false;
   /** +1 forward, -1 backward. */
   direction: 1 | -1 = 1;
 
-  private _raf: number | null = null;
-  private _lastT = 0;
-  private _listeners = new Map<TimelineEvent, Set<AnyListener>>();
+  #raf: number | null = null;
+  #lastT = 0;
+  #listeners = new Map<TimelineEvent, Set<AnyListener>>();
 
   constructor(options: TimelineOptions = {}) {
     this.fps = options.fps ?? 30;
     this.loop = options.loop ?? false;
     this.speed = options.speed ?? 1;
     this.minFrames = options.minFrames ?? 1;
+    this.autoUpdate = options.autoUpdate ?? true;
 
     if (typeof options.onUpdate === "function") {
       this.on("update", options.onUpdate);
@@ -78,20 +64,28 @@ export class Timeline {
   // --- events -------------------------------------------------------------
 
   on<K extends TimelineEvent>(event: K, fn: EventListener<K>): () => void {
-    let set = this._listeners.get(event);
-    if (!set) this._listeners.set(event, (set = new Set()));
+    let set = this.#listeners.get(event);
+    if (!set) this.#listeners.set(event, (set = new Set()));
     set.add(fn as AnyListener);
     return () => this.off(event, fn);
   }
 
   off<K extends TimelineEvent>(event: K, fn: EventListener<K>): void {
-    this._listeners.get(event)?.delete(fn as AnyListener);
+    this.#listeners.get(event)?.delete(fn as AnyListener);
   }
 
   emit<K extends TimelineEvent>(event: K, payload?: TimelineEventMap[K]): void {
-    this._listeners
-      .get(event)
-      ?.forEach((fn) => (fn as EventListener<K>)(payload as TimelineEventMap[K]));
+    const set = this.#listeners.get(event);
+    if (!set) return;
+    // Isolate listeners: a throwing handler must not break sibling listeners
+    // or kill the self-driving playback loop.
+    for (const fn of set) {
+      try {
+        (fn as EventListener<K>)(payload as TimelineEventMap[K]);
+      } catch (err) {
+        console.error(`timeline: "${event}" listener threw`, err);
+      }
+    }
   }
 
   // --- tracks -------------------------------------------------------------
@@ -121,13 +115,12 @@ export class Timeline {
 
   /**
    * Length of the timeline in seconds, derived from content: the furthest
-   * track span end and the latest label. Auto-grows/shrinks as keyframes are
-   * edited; floored at `minFrames` so it's never empty.
+   * track span end. Auto-grows/shrinks as keyframes are edited; floored at
+   * `minFrames` so it's never empty.
    */
   get duration(): number {
     let end = 0;
     for (const t of this.tracks) end = Math.max(end, t.endTime);
-    for (const l of this.labels) end = Math.max(end, l.time);
     return Math.max(end, this.frameToTime(this.minFrames));
   }
 
@@ -148,89 +141,6 @@ export class Timeline {
     return Math.round(time * this.fps) / this.fps;
   }
 
-  /** Resolve a Flash-style target: a frame number or a label name -> seconds. */
-  private _resolveTime(target: number | string): number {
-    if (typeof target === "string") {
-      const l = this.findLabelByName(target);
-      return l ? l.time : this.currentTime;
-    }
-    if (Number.isFinite(target)) return this.frameToTime(target);
-    return this.currentTime;
-  }
-
-  // --- labels -------------------------------------------------------------
-
-  /**
-   * Add a named marker at a frame. `hold` makes it a playback stop point;
-   * `script` is an arbitrary string (e.g. a frame action) carried with it.
-   */
-  addLabel(options: AddLabelOptions = {}): Label {
-    const { time = this.currentTime, name, hold = false, script = "" } = options;
-    const label: Label = {
-      id: nextLabelId(),
-      time: Math.max(0, time),
-      name: name ?? `label ${this.labels.length + 1}`,
-      hold,
-      script,
-    };
-    this.labels.push(label);
-    this.labels.sort((a, b) => a.time - b.time);
-    this.emit("labels");
-    return label;
-  }
-
-  getLabel(id: string): Label | null {
-    return this.labels.find((l) => l.id === id) ?? null;
-  }
-
-  updateLabel(id: string, patch: LabelPatch = {}): Label | null {
-    const label = this.getLabel(id);
-    if (!label) return null;
-    if (Number.isFinite(patch.time)) label.time = Math.max(0, patch.time!);
-    if (typeof patch.name === "string") label.name = patch.name;
-    if (typeof patch.hold === "boolean") label.hold = patch.hold;
-    if (typeof patch.script === "string") label.script = patch.script;
-    this.labels.sort((a, b) => a.time - b.time);
-    this.emit("labels");
-    return label;
-  }
-
-  removeLabel(id: string): boolean {
-    const i = this.labels.findIndex((l) => l.id === id);
-    if (i === -1) return false;
-    this.labels.splice(i, 1);
-    this.emit("labels");
-    return true;
-  }
-
-  findLabelByName(name: string): Label | null {
-    return this.labels.find((l) => l.name === name) ?? null;
-  }
-
-  /**
-   * Find the first hold label strictly crossed by a step from `prev` to `next`
-   * in the given direction. Returns the label to stop on, or null.
-   */
-  private _holdLabelInStep(
-    prev: number,
-    next: number,
-    dir: number,
-  ): Label | null {
-    const holds = this.labels.filter((l) => l.hold);
-    if (dir > 0) {
-      return (
-        holds
-          .filter((l) => l.time > prev && l.time <= next)
-          .sort((a, b) => a.time - b.time)[0] ?? null
-      );
-    }
-    return (
-      holds
-        .filter((l) => l.time < prev && l.time >= next)
-        .sort((a, b) => b.time - a.time)[0] ?? null
-    );
-  }
-
   // --- evaluation ---------------------------------------------------------
 
   /** Evaluate + write every track at the current time, then notify. */
@@ -244,7 +154,7 @@ export class Timeline {
   seek(time: number): void {
     // Only floor at 0. The playhead may sit beyond the current content while
     // authoring; `duration` auto-fits to content and playback still
-    // wraps/clamps at it in `_tick`.
+    // wraps/clamps at it in `#tick`.
     this.currentTime = Math.max(0, time);
     this.apply();
     this.emit("seek", this.currentTime);
@@ -262,38 +172,17 @@ export class Timeline {
     }
 
     this.isPlaying = true;
-    this._lastT = now();
+    this.#lastT = now();
     this.emit("play", this.direction);
-    this._tick();
-  }
-
-  playForward(): void {
-    this.play(1);
-  }
-
-  playBackward(): void {
-    this.play(-1);
-  }
-
-  /** Flash-style: jump to a frame number or label name, then play. Chainable. */
-  gotoAndPlay(target: number | string, direction: number = 1): this {
-    this.seek(this._resolveTime(target));
-    this.play(direction);
-    return this;
-  }
-
-  /** Flash-style: jump to a frame number or label name and pause. Chainable. */
-  gotoAndStop(target: number | string): this {
-    this.pause();
-    this.seek(this._resolveTime(target));
-    return this;
+    // Self-driving mode runs its own loop; manual mode waits for update(dt).
+    if (this.autoUpdate) this.#tick();
   }
 
   pause(): void {
     if (!this.isPlaying) return;
     this.isPlaying = false;
-    if (this._raf != null) cancelAnimationFrame(this._raf);
-    this._raf = null;
+    if (this.#raf != null) cancelAnimationFrame(this.#raf);
+    this.#raf = null;
     this.emit("pause");
   }
 
@@ -310,27 +199,52 @@ export class Timeline {
     this.emit("stop");
   }
 
-  private _tick = (): void => {
+  /**
+   * Advance playback by `dt` seconds, then write all tracks and emit `update`.
+   *
+   * Call this once per frame when driving the timeline yourself (construct with
+   * `{ autoUpdate: false }` so `play()` doesn't also run an internal loop):
+   *
+   * ```ts
+   * const tl = new Timeline({ autoUpdate: false });
+   * function frame(now: number) {
+   *   tl.update();          // or tl.update(dtSeconds) with your own delta
+   *   requestAnimationFrame(frame);
+   * }
+   * tl.play();
+   * requestAnimationFrame(frame);
+   * ```
+   *
+   * With no argument the delta is derived from an internal clock, so a bare
+   * `update()` in a rAF/game loop just works. It is a no-op while paused, so
+   * it's safe to call unconditionally from a shared loop.
+   */
+  update(dt?: number): void {
     if (!this.isPlaying) return;
     const t0 = now();
-    const dt = (t0 - this._lastT) / 1000;
-    this._lastT = t0;
+    const delta = dt ?? (t0 - this.#lastT) / 1000;
+    this.#lastT = t0;
+    this.#advance(delta);
+  }
 
+  /**
+   * Move the playhead by `dt` seconds, applying loop/clamp boundaries, then
+   * write every track. Shared by the internal rAF loop and {@link update}.
+   * Pauses (and stops) when a non-looping boundary is reached.
+   */
+  #advance(dt: number): void {
     const hi = this.duration;
-    const prev = this.currentTime;
-    let t = prev + this.direction * this.speed * dt;
-
-    // 1) stop at a hold label if we cross one this step
-    const hold = this._holdLabelInStep(prev, t, this.direction);
-    if (hold) {
-      this.currentTime = hold.time;
+    // Nothing to animate (no content and a zero floor): stop instead of
+    // producing NaN via `t % 0` in the loop branches below.
+    if (hi <= 0) {
+      this.currentTime = 0;
       this.apply();
-      this.pause();
-      this.emit("hold", hold);
-      return;
+      return this.pause();
     }
 
-    // 2) handle the timeline boundaries (loop or clamp+pause)
+    let t = this.currentTime + this.direction * this.speed * dt;
+
+    // handle the timeline boundaries (loop or clamp+pause)
     if (t >= hi) {
       if (this.loop) t = t % hi;
       else {
@@ -349,14 +263,22 @@ export class Timeline {
 
     this.currentTime = t;
     this.apply();
-    this._raf = requestAnimationFrame(this._tick);
+  }
+
+  #tick = (): void => {
+    if (!this.isPlaying) return;
+    const t0 = now();
+    const dt = (t0 - this.#lastT) / 1000;
+    this.#lastT = t0;
+    this.#advance(dt);
+    // #advance may have paused at a boundary; only reschedule if still playing.
+    if (this.isPlaying) this.#raf = requestAnimationFrame(this.#tick);
   };
 
   dispose(): void {
     this.pause();
-    this._listeners.clear();
+    this.#listeners.clear();
     this.tracks = [];
-    this.labels = [];
   }
 }
 

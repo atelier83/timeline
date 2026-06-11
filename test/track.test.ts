@@ -22,19 +22,10 @@ describe("Track construction", () => {
       label: "X position",
       min: -10,
       max: 10,
-      step: 0.5,
-      color: "#f00",
     });
     expect(track.label).toBe("X position");
     expect(track.min).toBe(-10);
     expect(track.max).toBe(10);
-    expect(track.step).toBe(0.5);
-    expect(track.color).toBe("#f00");
-  });
-
-  it("computes a non-zero range", () => {
-    expect(new Track({ x: 0 }, "x", { min: 0, max: 0 }).range).toBe(1);
-    expect(new Track({ x: 0 }, "x", { min: 0, max: 4 }).range).toBe(4);
   });
 });
 
@@ -70,6 +61,20 @@ describe("keyframes", () => {
   it("returns null when moving a missing keyframe", () => {
     const track = new Track({ x: 0 }, "x");
     expect(track.moveKeyframe("nope")).toBeNull();
+  });
+
+  it("tracks lastKeyframe and clears it when that keyframe is removed", () => {
+    const track = new Track({ x: 0 }, "x", { min: 0, max: 10 });
+    expect(track.lastKeyframe).toBeNull();
+
+    track.addKeyframe(0, 1);
+    track.addKeyframe(2, 5);
+    const last = track.lastKeyframe;
+    expect(last).not.toBeNull();
+    expect(last!.time).toBe(2);
+
+    track.removeKeyframe(last!.id);
+    expect(track.lastKeyframe).toBeNull(); // no longer dangles to a removed kf
   });
 });
 
@@ -136,8 +141,8 @@ describe("evaluate", () => {
 describe("getCurrentValue", () => {
   it("reads the live property, or 0 when not finite", () => {
     expect(new Track({ x: 42 }, "x").getCurrentValue()).toBe(42);
-    expect(
-      new Track({} as Record<string, number>, "x").getCurrentValue(),
-    ).toBe(0);
+    expect(new Track({} as Record<string, number>, "x").getCurrentValue()).toBe(
+      0,
+    );
   });
 });

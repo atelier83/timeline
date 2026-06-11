@@ -2,8 +2,8 @@ import { clamp, interpolate } from "./interpolation";
 import type { Timeline } from "./timeline";
 import type { AnimatableTarget, Easing, Keyframe, TrackOptions } from "./types";
 
-let _kfId = 0;
-const nextId = (): string => `kf_${++_kfId}`;
+let kfId = 0;
+const nextId = (): string => `kf_${++kfId}`;
 
 /** A patch applied to a keyframe via {@link Track.moveKeyframe}. */
 export interface KeyframePatch {
@@ -29,12 +29,13 @@ export class Track {
   timeline: Timeline | null = null;
 
   label: string;
-  color: string | null;
   min: number;
   max: number;
-  step: number | null;
 
   keyframes: Keyframe[] = [];
+
+  /** The most recently added keyframe (convenience for callers after add). */
+  lastKeyframe: Keyframe | null = null;
 
   /**
    * Optional explicit end of the span (a held tail past the last keyframe);
@@ -55,14 +56,8 @@ export class Track {
     const current = hasValue ? (raw as number) : 0;
 
     this.label = options.label ?? property;
-    this.color = options.color ?? null;
     this.min = options.min ?? (hasValue ? current - 1 : 0);
     this.max = options.max ?? (hasValue ? current + 1 : 1);
-    this.step = options.step ?? null;
-  }
-
-  get range(): number {
-    return this.max - this.min || 1;
   }
 
   /** Time at which the track's span ends (>= last keyframe time). */
@@ -78,11 +73,11 @@ export class Track {
     const n = this.keyframes.length;
     const lastT = n ? this.keyframes[n - 1]!.time : 0;
     this.spanEnd = Math.max(time, lastT);
-    this._notify();
+    this.#notify();
   }
 
   /** Notify the owning timeline that this track's keyframes changed. */
-  private _notify(): void {
+  #notify(): void {
     this.timeline?.emit("keyframes", this);
   }
 
@@ -96,14 +91,14 @@ export class Track {
     return this.keyframes.length > 0;
   }
 
-  sort(): this {
+  #sort(): void {
     this.keyframes.sort((a, b) => a.time - b.time);
-    return this;
   }
 
   /**
    * Add a keyframe. `frame` is a frame index, converted to time via the owning
-   * timeline (or treated as seconds when the track is standalone).
+   * timeline (or treated as seconds when the track is standalone). Chainable;
+   * the created keyframe is exposed as {@link lastKeyframe}.
    */
   addKeyframe(frame: number, value: number, easing: Easing = "none"): this {
     const time = this.timeline ? this.timeline.frameToTime(frame) : frame;
@@ -114,8 +109,9 @@ export class Track {
       easing,
     };
     this.keyframes.push(kf);
-    this.sort();
-    this._notify();
+    this.lastKeyframe = kf;
+    this.#sort();
+    this.#notify();
     return this;
   }
 
@@ -127,7 +123,8 @@ export class Track {
     const i = this.keyframes.findIndex((k) => k.id === id);
     if (i === -1) return false;
     this.keyframes.splice(i, 1);
-    this._notify();
+    if (this.lastKeyframe?.id === id) this.lastKeyframe = null;
+    this.#notify();
     return true;
   }
 
@@ -139,8 +136,8 @@ export class Track {
     if (Number.isFinite(patch.value))
       kf.value = clamp(patch.value!, this.min, this.max);
     if (typeof patch.easing === "string") kf.easing = patch.easing;
-    this.sort();
-    this._notify();
+    this.#sort();
+    this.#notify();
     return kf;
   }
 

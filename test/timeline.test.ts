@@ -70,9 +70,6 @@ describe("frame math + duration", () => {
     track.addKeyframe(60, 1); // 2s of content
     expect(tl.duration).toBe(2);
     expect(tl.totalFrames).toBe(60);
-
-    tl.addLabel({ time: 3 });
-    expect(tl.duration).toBe(3); // a later label extends it further
   });
 
   it("tracks the current frame from the current time", () => {
@@ -80,36 +77,6 @@ describe("frame math + duration", () => {
     tl.add({ x: 0 }, "x").addKeyframe(60, 0);
     tl.seek(1);
     expect(tl.currentFrame).toBe(30);
-  });
-});
-
-describe("labels", () => {
-  it("adds, reads, updates, and removes labels kept sorted by time", () => {
-    const tl = new Timeline({ fps: 30 });
-    const labelsChanged = vi.fn();
-    tl.on("labels", labelsChanged);
-
-    const b = tl.addLabel({ time: 2, name: "b" });
-    tl.addLabel({ time: 1, name: "a" });
-    expect(tl.labels.map((l) => l.name)).toEqual(["a", "b"]);
-    expect(tl.findLabelByName("a")?.time).toBe(1);
-    expect(tl.getLabel(b.id)?.name).toBe("b");
-
-    tl.updateLabel(b.id, { time: 0.5, name: "b2", hold: true, script: "stop()" });
-    expect(tl.labels.map((l) => l.name)).toEqual(["b2", "a"]);
-    expect(tl.getLabel(b.id)?.hold).toBe(true);
-
-    expect(tl.removeLabel(b.id)).toBe(true);
-    expect(tl.removeLabel("missing")).toBe(false);
-    expect(tl.updateLabel("missing")).toBeNull();
-    expect(labelsChanged).toHaveBeenCalled();
-  });
-
-  it("auto-names labels and floors negative times at 0", () => {
-    const tl = new Timeline();
-    const l = tl.addLabel({ time: -5 });
-    expect(l.name).toBe("label 1");
-    expect(l.time).toBe(0);
   });
 });
 
@@ -174,7 +141,7 @@ describe("playback", () => {
     tl.add({ x: 0 }, "x").addKeyframe(30, 0); // duration 1s
     tl.seek(1);
 
-    tl.playBackward();
+    tl.play(-1);
     expect(tl.direction).toBe(-1);
     run(tl, 100);
     expect(tl.isPlaying).toBe(false);
@@ -190,18 +157,36 @@ describe("playback", () => {
     tl.pause();
   });
 
-  it("stops on a hold label while playing forward", () => {
+  it("keeps playing (and runs sibling listeners) when an update listener throws", () => {
     const tl = new Timeline({ fps: 30 });
     tl.add({ x: 0 }, "x").addKeyframe(60, 0); // duration 2s
-    tl.addLabel({ time: 0.5, hold: true });
-    const onHold = vi.fn();
-    tl.on("hold", onHold);
+    const sibling = vi.fn();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    tl.on("update", () => {
+      throw new Error("boom");
+    });
+    tl.on("update", sibling);
 
     tl.play();
-    run(tl, 100);
-    expect(tl.isPlaying).toBe(false);
-    expect(tl.currentTime).toBeCloseTo(0.5);
-    expect(onHold).toHaveBeenCalled();
+    step(100); // a throwing listener must not break the rAF loop
+    expect(tl.isPlaying).toBe(true);
+    expect(tl.currentTime).toBeGreaterThan(0);
+    expect(sibling).toHaveBeenCalled(); // isolated from the throwing listener
+    expect(errSpy).toHaveBeenCalled();
+
+    tl.pause();
+    errSpy.mockRestore();
+  });
+
+  it("does not produce NaN when duration is zero (minFrames: 0, no content)", () => {
+    const tl = new Timeline({ fps: 30, minFrames: 0, loop: true });
+    expect(tl.duration).toBe(0);
+
+    tl.play();
+    step(100);
+    expect(Number.isNaN(tl.currentTime)).toBe(false);
+    expect(tl.currentTime).toBe(0);
+    expect(tl.isPlaying).toBe(false); // nothing to animate -> stops cleanly
   });
 
   it("toggles, and stop rewinds to 0", () => {
@@ -218,37 +203,57 @@ describe("playback", () => {
   });
 });
 
-describe("goto helpers", () => {
-  it("gotoAndStop jumps to a frame and pauses", () => {
-    const tl = new Timeline({ fps: 30 });
-    tl.add({ x: 0 }, "x").addKeyframe(60, 0);
-    tl.gotoAndStop(30);
+describe("manual driving (autoUpdate: false)", () => {
+  it("does not start a rAF loop on play; advances via update(dt)", () => {
+    const tl = new Timeline({ fps: 30, autoUpdate: false });
+    const target = { x: 0 };
+    tl.add(target, "x", { min: 0, max: 10 })
+      .addKeyframe(0, 0, "linear")
+      .addKeyframe(30, 10, "linear"); // duration 1s
+
+    tl.play();
+    expect(tl.isPlaying).toBe(true);
+    expect(rafs).toHaveLength(0); // no internal loop scheduled
+
+    tl.update(0.5); // advance half a second -> halfway
+    expect(tl.currentTime).toBeCloseTo(0.5);
+    expect(target.x).toBeCloseTo(5);
+    expect(rafs).toHaveLength(0); // update() must not schedule rAF either
+
+    tl.update(0.5); // reach the end -> clamps + pauses
+    expect(tl.currentTime).toBeCloseTo(1);
     expect(tl.isPlaying).toBe(false);
-    expect(tl.currentTime).toBe(1);
   });
 
-  it("gotoAndPlay resolves a label name then plays", () => {
-    const tl = new Timeline({ fps: 30 });
-    tl.add({ x: 0 }, "x").addKeyframe(60, 0);
-    tl.addLabel({ time: 1, name: "mid" });
-    tl.gotoAndPlay("mid");
-    expect(tl.currentTime).toBeCloseTo(1);
-    expect(tl.isPlaying).toBe(true);
+  it("is a no-op while paused, so a shared loop can call it unconditionally", () => {
+    const tl = new Timeline({ fps: 30, autoUpdate: false });
+    tl.add({ x: 0 }, "x").addKeyframe(30, 0);
+    tl.seek(0.5);
+    tl.update(0.5); // not playing -> nothing happens
+    expect(tl.currentTime).toBeCloseTo(0.5);
+  });
+
+  it("derives dt from its own clock when called with no argument", () => {
+    const tl = new Timeline({ fps: 30, autoUpdate: false, loop: true });
+    tl.add({ x: 0 }, "x").addKeyframe(30, 0); // duration 1s
+    tl.play();
+    clock += 250; // 250ms elapse since play() sampled the clock
+    tl.update(); // dt derived internally (~0.25s)
+    expect(tl.currentTime).toBeGreaterThan(0);
+    expect(tl.currentTime).toBeLessThan(1);
     tl.pause();
   });
 });
 
 describe("dispose", () => {
-  it("pauses and clears tracks, labels, and listeners", () => {
+  it("pauses and clears tracks and listeners", () => {
     const tl = new Timeline();
     const update = vi.fn();
     tl.on("update", update);
     tl.add({ x: 0 }, "x").addKeyframe(30, 0);
-    tl.addLabel({ time: 1 });
 
     tl.dispose();
     expect(tl.tracks).toHaveLength(0);
-    expect(tl.labels).toHaveLength(0);
 
     update.mockClear();
     tl.emit("update", 0);
