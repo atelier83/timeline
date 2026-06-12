@@ -3,7 +3,7 @@
 > Headless, framework-agnostic animation timeline for the web — keyframes, easing, and playback, with an optional Flash-style dope-sheet UI.
 
 [![npm](https://img.shields.io/npm/v/@atelier83/timeline.svg)](https://www.npmjs.com/package/@atelier83/timeline)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/@atelier83/timeline.svg)](https://bundlephobia.com/package/@atelier83/timeline)
+[![npm unpacked size](https://img.shields.io/npm/unpacked-size/@atelier83/timeline)](https://socket.dev/npm/package/@atelier83/timeline/overview/0.2.0)
 [![CI](https://github.com/atelier83/timeline/actions/workflows/ci.yml/badge.svg)](https://github.com/atelier83/timeline/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@atelier83/timeline.svg)](./LICENSE)
 
