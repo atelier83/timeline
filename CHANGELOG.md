@@ -1,5 +1,11 @@
 # @atelier83/timeline
 
+## 0.2.0
+
+### Patch Changes
+
+- Auto-scroll: the lanes viewport now follows the playhead during playback. Scrolls only when the playhead leaves the visible area, jumping to 10% from the left edge so there is look-ahead room.
+
 ## 0.1.0
 
 ### Minor Changes
@@ -14,4 +20,3 @@
 - Optional Flash-style dope-sheet UI (`@atelier83/timeline/ui`): fixed bottom panel with transport bar, ruler, track lanes, keyframe inspector, collapse/expand.
 - Optional React bindings (`@atelier83/timeline/react`): `useTimeline`, `TimelineDock`.
 - Shared `--a83-*` CSS design tokens — themes together with `@atelier83/layouts` from one palette.
-- Auto-scroll: lanes viewport follows the playhead during playback.

@@ -1,6 +1,6 @@
 {
   "name": "@atelier83/timeline",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Headless, framework-agnostic animation timeline: keyframes, easing, and playback. Vanilla TS core with an optional Flash-style dope-sheet UI and React bindings.",
   "license": "MIT",
   "author": "atelier83",
