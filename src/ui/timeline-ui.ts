@@ -582,6 +582,17 @@ export class TimelineUI {
     this.#playhead.style.transform = `translateX(${x}px)`;
     this.#rulerHead.style.transform = `translateX(${x}px)`;
     this.#timeLabel.innerHTML = `<b>${this.tl.currentFrame}</b> <span class="tl-label-dim">/ ${this.tl.totalFrames} f · ${this.tl.fps}fps</span>`;
+
+    // Auto-scroll to keep the playhead visible during playback. Scroll by a
+    // page (viewport width) so it doesn't jump on every frame — only when the
+    // playhead leaves the visible area.
+    if (this.tl.isPlaying) {
+      const vp = this.#lanesViewport;
+      const { scrollLeft, clientWidth } = vp;
+      if (x < scrollLeft || x > scrollLeft + clientWidth) {
+        vp.scrollLeft = x - clientWidth * 0.1;
+      }
+    }
   }
 
   #syncTransport(): void {
